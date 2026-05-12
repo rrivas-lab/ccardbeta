@@ -262,7 +262,7 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
         'Banfanb': { maxAuth: 0 },
         'BDT': { maxAuth: 0 },
         'Banco del Tesoro': { maxAuth: 0 },
-        'Banco Exterior': { maxAuth: 0 },
+        'Banco Exterior': { maxAuth: 999 },
         'BFC': { maxAuth: 0 },
         'Banco del Sur': { maxAuth: 0 },
         'Banplus': { maxAuth: 0 },
@@ -529,8 +529,8 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
   };
 
   const simulateScanSerials = () => {
-      setPosSerial('POS-001');
-      setSimSerial('SIM-001');
+      setPosSerial('POS-2024-001');
+      setSimSerial('SIM-2024-001');
   };
 
   const validateSerials = () => {
