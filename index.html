@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>CredicardPOS CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      html, body, #root { 
+        height: 100%; 
+        width: 100%; 
+        margin: 0; 
+        padding: 0; 
+        overflow: hidden;
+      }
+      #root {
+        display: flex;
+        flex-direction: column;
+      }
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #ffffff; 
+        overscroll-behavior-y: none; 
+      }
+      
+      /* Hide scrollbar for Chrome, Safari and Opera */
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+      /* Hide scrollbar for IE, Edge and Firefox */
+      .no-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+      }
+      
+      /* Mobile Safe Areas */
+      .pb-safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom, 20px);
+      }
+      
+      /* Animations */
+      @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-up {
+        animation: fade-in-up 0.5s ease-out forwards;
+      }
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.3s ease-out forwards;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root" class="w-full h-full"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
