@@ -9,12 +9,30 @@ const plans = [
   { id: 4, name: 'Corporativo', price: '32.00$', fee: '0.50$', details: 'Alto volumen de transacciones', color: 'bg-slate-800' },
 ];
 
-const modalitiesOptions = [
-  { id: 'Contado', name: 'Contado', description: 'Pago único del equipo', defaultPlanId: 1 },
-  { id: 'Financiado', name: 'Financiado', description: 'Pago en cuotas mensuales', defaultPlanId: 2 },
-  { id: 'Comodato', name: 'Comodato', description: 'Préstamo de uso bajo contrato (Sin facturación)', defaultPlanId: 1 },
-  { id: 'Contado con garantía extendida', name: 'Contado + G.E.', description: 'Incluye protección total', defaultPlanId: 3 },
-  { id: 'Contado sin garantía extendida', name: 'Contado s/G.E.', description: 'Garantía estándar', defaultPlanId: 1 }
+// [CRM DEF V.5] Modalidades de adquisición parametrizables.
+// No se debe hardcodear el listado: cualquier modalidad futura debe agregarse aquí
+// (origen oficial: Reglas de Negocio + Guía de Descomposición).
+// Flags:
+//   billable   -> genera factura de venta (false en Comodato).
+//   requiresContract -> exige contrato firmado por el cliente.
+//   inventoryMovementOnly -> sólo registra movimiento entre almacenes (Comodato).
+export const modalitiesOptions: Array<{
+  id: string;
+  name: string;
+  description: string;
+  defaultPlanId: number;
+  billable: boolean;
+  requiresContract: boolean;
+  inventoryMovementOnly: boolean;
+  enabled: boolean;
+}> = [
+  { id: 'Contado', name: 'Contado', description: 'Pago único del equipo', defaultPlanId: 1, billable: true, requiresContract: false, inventoryMovementOnly: false, enabled: true },
+  { id: 'Financiado', name: 'Financiado', description: 'Pago en cuotas mensuales', defaultPlanId: 2, billable: true, requiresContract: true, inventoryMovementOnly: false, enabled: true },
+  { id: 'Comodato', name: 'Comodato', description: 'Préstamo de uso bajo contrato (Sin facturación)', defaultPlanId: 1, billable: false, requiresContract: true, inventoryMovementOnly: true, enabled: true },
+  { id: 'Contado con garantía extendida', name: 'Contado + G.E.', description: 'Incluye protección total', defaultPlanId: 3, billable: true, requiresContract: false, inventoryMovementOnly: false, enabled: true },
+  { id: 'Contado sin garantía extendida', name: 'Contado s/G.E.', description: 'Garantía estándar', defaultPlanId: 1, billable: true, requiresContract: false, inventoryMovementOnly: false, enabled: true },
+  // Slot para futuras modalidades (ej. Leasing, Suscripción, etc.)
+  // { id: 'Suscripción', name: 'Suscripción', description: 'Pago recurrente mensual', defaultPlanId: 2, billable: true, requiresContract: true, inventoryMovementOnly: false, enabled: false },
 ];
 
 const equipments = [
@@ -118,6 +136,9 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
 
   // Step 14 Data (Programming AS/400)
   const [progStatus, setProgStatus] = useState<'idle' | 'creating_ticket' | 'pending_ops' | 'configuring' | 'success' | 'failure'>('idle');
+  // [CRM DEF V.5] Estado oficial del equipo posterior a la certificación de operatividad por el programador en AS/400.
+  const [as400LoadResult, setAs400LoadResult] = useState<'idle' | 'pending' | 'success' | 'failure'>('idle');
+  const [equipmentState, setEquipmentState] = useState<'En Programación' | 'Operativo para Entrega' | 'Fallido'>('En Programación');
   const [progTicketId, setProgTicketId] = useState<string | null>(null);
   const [notifiedSeller, setNotifiedSeller] = useState(false);
   const [isOperational, setIsOperational] = useState<boolean | null>(null);
@@ -237,7 +258,11 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
                   setTimeout(() => {
                       setProgStatus('configuring');
                       setTimeout(() => {
+                          // [CRM DEF V.5] Certificación de operatividad: programador registra carga en AS/400
+                          // y el sistema actualiza automáticamente el estado del equipo.
+                          setAs400LoadResult('success');
                           setProgStatus('success');
+                          setEquipmentState('Operativo para Entrega');
                           setNotifiedSeller(true);
                       }, 2500);
                   }, 3000);
@@ -257,24 +282,33 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
       setTerminalStatus('checking');
       setTerminalErrorMessage(null);
 
+      // [CRM DEF V.5] Reglas finales de Autorización de Terminales.
+      // maxAuth = cantidad de terminales permitidos sin autorización previa.
+      // Cuando targetTerminal > maxAuth se requiere autorización formal.
       const rules: Record<string, { maxAuth: number }> = {
-        'Bancaribe': { maxAuth: 0 },
-        'Banfanb': { maxAuth: 0 },
-        'BDT': { maxAuth: 0 },
-        'Banco del Tesoro': { maxAuth: 0 },
-        'Banco Exterior': { maxAuth: 999 },
-        'BFC': { maxAuth: 0 },
-        'Banco del Sur': { maxAuth: 0 },
-        'Banplus': { maxAuth: 0 },
+        // Autorización previa desde 0 terminales (cualquier alta requiere autorización)
         '100% Banco': { maxAuth: 0 },
+        'Banco Agrícola': { maxAuth: 0 },
+        'Banca Amiga': { maxAuth: 0 },
         'BNC': { maxAuth: 0 },
-        'R4': { maxAuth: 0 },
-        'Banco Caroní': { maxAuth: 999 },
-        'Bancrecer': { maxAuth: 3 },
-        'Banco Plaza': { maxAuth: 6 },
-        'Banco Activo': { maxAuth: 2 },
-        'Banco Agrícola': { maxAuth: 1 },
-        'Banco de Venezuela': { maxAuth: 5 },
+        // Máximo 10 terminales autorizados sin requerimiento previo
+        'Bancrecer': { maxAuth: 10 },
+        'Banco Activo': { maxAuth: 10 },
+        'Banco Caroní': { maxAuth: 10 },
+        'R4': { maxAuth: 10 },
+        'Banfanb': { maxAuth: 10 },
+        'Banplus': { maxAuth: 10 },
+        'Bancaribe': { maxAuth: 10 },
+        'Banco del Tesoro': { maxAuth: 10 },
+        'BDT': { maxAuth: 10 },
+        'Tesoro': { maxAuth: 10 },
+        'BFC': { maxAuth: 10 },
+        'Banco Exterior': { maxAuth: 10 },
+        'Banco del Sur': { maxAuth: 10 },
+        'Del Sur': { maxAuth: 10 },
+        'Banco de Venezuela': { maxAuth: 10 },
+        // Máximo 5 terminales autorizados
+        'Banco Plaza': { maxAuth: 5 },
       };
 
       const bankRules = rules[effectiveBank] || { maxAuth: 0 };
@@ -294,8 +328,8 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
               return;
           }
 
-          // Rule Evaluation
-          if (targetTerminalNumber > bankRules.maxAuth && effectiveBank !== 'Banco Caroní') {
+          // [CRM DEF V.5] Evaluación de regla: si el siguiente terminal supera el máximo permitido por banco -> requiere autorización previa.
+          if (targetTerminalNumber > bankRules.maxAuth) {
               setTerminalStatus('unauthorized');
               setTerminalErrorMessage(`El banco ${effectiveBank} requiere autorización para el terminal ${targetTerminalNumber}`);
               return;
@@ -349,7 +383,9 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
         { id: 'AFIL-8821', name: 'PANADERIA EL SOL', bank: 'Banco Exterior', mid: '882199320', status: 'Activo', region: 'Metropolitana', mora: false },
         { id: 'AFIL-1120', name: 'SUPERMERCADO CENTRAL', bank: 'Banco de Venezuela', mid: '112099441', status: 'Activo', region: 'Zulia', mora: true },
         { id: 'AFIL-0105', name: 'FARMACIA LAS LLAVES', bank: 'Banco Banesco', mid: '010588229', status: 'Activo', region: 'Occidente', mora: false },
-        { id: 'AFIL-EXT-M', name: 'TALLER MECANICO RF', bank: 'Banco Exterior', mid: '882144556', status: 'Activo', region: 'Metropolitana', mora: false }
+        { id: 'AFIL-EXT-M', name: 'TALLER MECANICO RF', bank: 'Banco Exterior', mid: '882144556', status: 'Activo', region: 'Metropolitana', mora: false },
+        // [CRM DEF V.5] Banco agregado al catálogo: Banca Amiga (autorización previa desde 0 terminales).
+        { id: 'AFIL-BAMI-1', name: 'PANADERIA AMIGA', bank: 'Banca Amiga', mid: '770100001', status: 'Activo', region: 'Capital', mora: false }
       ];
 
       // Rule: User Bank only sees their bank
@@ -489,14 +525,19 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
     }, 1500);
   };
 
+  // [CRM DEF V.5] OTP obligatorio.
+  // El OTP es requerido para formalizar la venta y también para formalizar
+  // la actualización de datos del cliente y del número de contacto.
+  // No se permite avanzar sin OTP válido.
   const validateOtp = () => {
       setOtpStatus('validating');
       setTimeout(() => {
-          if (otpInputSms === '123456' && otpInputEmail === '654321') { // MOCK: OTP SMS = 123456, OTP Email = 654321
+          // MOCK válido: OTP SMS = 123456, OTP Email = 654321 (sin integración real).
+          if (otpInputSms === '123456' && otpInputEmail === '654321') {
               setOtpStatus('valid');
               setIsOtpVerified(true);
               setTimeout(() => {
-                setStep(8); // Equipment Selection
+                setStep(8); // Equipment Selection — sólo accesible con OTP válido.
               }, 1000);
           } else {
               setOtpStatus('invalid');
@@ -822,6 +863,7 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
         <div className="bg-slate-900 p-5 rounded-[24px] text-white shadow-lg">
             <h3 className="font-bold text-lg">Información del Cliente</h3>
             <p className="text-slate-300 text-xs mt-1">Datos recuperados de SENIAT, SAP HANA y AS/400.</p>
+            <p className="text-[10px] text-amber-300 font-bold uppercase tracking-widest mt-3">[CRM DEF V.5] La actualización de datos y número de contacto requiere OTP válido para formalizarse.</p>
         </div>
 
         <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 space-y-5">
@@ -1433,7 +1475,7 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
                 <div>
                     <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Opciones de Modalidad</h4>
                     <div className="grid grid-cols-1 gap-2">
-                        {modalitiesOptions.map(mod => (
+                        {modalitiesOptions.filter(mod => mod.enabled).map(mod => (
                             <button 
                                 key={mod.id} 
                                 onClick={() => handleModalitySelect(mod.id)} 
@@ -1861,10 +1903,16 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
         if (operational) {
             setProgStatus('configuring');
             setTimeout(() => {
+                // [CRM DEF V.5] Certificación de operatividad por programador:
+                // registra resultado de la carga en AS/400 y actualiza el estado del equipo.
+                setAs400LoadResult('success');
                 setProgStatus('success');
+                setEquipmentState('Operativo para Entrega');
                 setNotifiedSeller(true);
             }, 2500);
         } else {
+            setAs400LoadResult('failure');
+            setEquipmentState('Fallido');
             setProgStatus('failure');
         }
     };
@@ -2062,6 +2110,12 @@ const SalesWizard: React.FC<SalesWizardProps> = ({ user }) => {
                     
                     <div>
                         <h3 className="text-xl font-black text-slate-800 tracking-tight">¡Gestión Finalizada!</h3>
+                        {/* [CRM DEF V.5] Estado del equipo posterior a certificación AS/400 */}
+                        <div className="inline-flex items-center gap-2 mt-2 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                          <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Estado: {equipmentState}</span>
+                          <span className="text-[9px] font-bold text-emerald-600">· Carga AS/400: {as400LoadResult === 'success' ? 'OK' : as400LoadResult}</span>
+                        </div>
                         <p className="text-slate-500 text-xs mt-2">
                             {isShortPath 
                                 ? 'El equipo ha sido programado y notificado para descarga final por el vendedor.'

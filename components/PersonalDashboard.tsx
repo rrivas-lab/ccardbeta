@@ -33,6 +33,21 @@ interface InactiveEquipment {
   managementHistory: ManagementLog[];
 }
 
+// [CRM DEF V.5] Configuración parametrizable de alertas de inactividad.
+// Regla base: alerta automática si un equipo no registra transacciones en 15 días.
+// 30 días pasa a ser escalamiento parametrizable (no la regla principal).
+export const INACTIVITY_RULES = {
+  alertAfterDays: 15,          // Regla base oficial
+  escalationAfterDays: 30,     // Escalamiento parametrizable
+  criticalAfterDays: 45        // Crítico (mantiene umbral histórico)
+};
+
+export const getInactivityStatus = (daysInactive: number): 'active' | 'risk' | 'critical' => {
+  if (daysInactive >= INACTIVITY_RULES.criticalAfterDays) return 'critical';
+  if (daysInactive >= INACTIVITY_RULES.alertAfterDays) return 'risk';
+  return 'active';
+};
+
 const mockInactiveEquipments: InactiveEquipment[] = [
   {
     id: 'POS-001',
@@ -239,7 +254,7 @@ const PersonalDashboard: React.FC<PersonalDashboardProps> = ({ user }) => {
         <div className="flex justify-between items-center mb-2 px-1">
             <div>
                 <h3 className="font-bold text-slate-800">Equipos Sin Transar</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Gestión de Campo</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Gestión de Campo · Alerta base {INACTIVITY_RULES.alertAfterDays}d · Escalamiento {INACTIVITY_RULES.escalationAfterDays}d</p>
             </div>
             <div className="flex gap-2">
                 <button className="p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-slate-400" onClick={() => alert('Abriendo filtros (mock)')}><Filter size={16}/></button>

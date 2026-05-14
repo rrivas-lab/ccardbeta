@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, Minimize2, ChevronDown } from 'lucide-react';
+// Servicio reemplazado por mock determinístico local (no llama a APIs de IA).
 import { generateAssistantResponse } from '../services/geminiService';
-import { GeminiMessage } from '../types';
+import { AssistantMessage } from '../types';
 
 interface AssistantProps {
   currentView: string;
@@ -10,7 +11,7 @@ interface AssistantProps {
 }
 
 const Assistant: React.FC<AssistantProps> = ({ currentView, isOpen, onClose }) => {
-  const [messages, setMessages] = useState<GeminiMessage[]>([
+  const [messages, setMessages] = useState<AssistantMessage[]>([
     { role: 'model', text: 'Hola, soy el asistente virtual de Credicard. ¿Necesitas ayuda con una venta o inventario?' }
   ]);
   const [input, setInput] = useState('');
@@ -28,7 +29,7 @@ const Assistant: React.FC<AssistantProps> = ({ currentView, isOpen, onClose }) =
   const handleSend = async () => {
     if (!input.trim()) return;
 
-    const userMsg: GeminiMessage = { role: 'user', text: input };
+    const userMsg: AssistantMessage = { role: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);

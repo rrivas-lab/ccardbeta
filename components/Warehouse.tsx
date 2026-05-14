@@ -26,12 +26,17 @@ const Warehouse: React.FC<WarehouseProps> = ({ onNavigate, user }) => {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
   // Define allowed tabs per role
+  // [CRM DEF V.5] Tabs disponibles en módulo Almacén.
+  // 'validate' (Validación Comercial) sólo lo aprueba/edita/rechaza Ventas (rol CCR en este prototipo).
+  // 'stock' (Inventario) permite a Ventas (CCR) y a Inventario realizar asignación de equipos si el perfil lo permite.
+  // 'odoo_report' (Reporte Diario Consolidado en Odoo) — periodicidad diaria, disponible al cierre de jornada.
   const warehouseTabs = [
     { id: 'request', label: 'Solicitud', roles: ['Agente', 'Regional', 'CCR', 'Logistica', 'Inventario'] },
     { id: 'validate', label: 'Validación', roles: ['CCR'] },
     { id: 'logistics', label: 'Operaciones', roles: ['Logistica', 'Inventario'] },
     { id: 'stock', label: 'Inventario', roles: ['Inventario', 'CCR', 'Logistica', 'Regional'] },
     { id: 'distribute', label: 'Distribución', roles: ['Agente', 'CCR'] },
+    { id: 'odoo_report', label: 'Reporte Odoo', roles: ['CCR', 'Regional', 'Logistica', 'Inventario'] },
   ].filter(tab => tab.roles.includes(user.role));
 
   // Auto-select first tab if none selected
@@ -124,15 +129,30 @@ const Warehouse: React.FC<WarehouseProps> = ({ onNavigate, user }) => {
     setRequestForm({ modelId: '', qty: '', operator: 'Digitel', deliveryMethod: 'Pick up' });
   };
 
+  // [CRM DEF V.5] Validación Comercial.
+  // Sólo el área de Ventas (rol CCR en este prototipo) puede aprobar, editar o rechazar
+  // solicitudes de equipos de Bancos o Agentes en Odoo.
+  // - La aprobación reserva stock.
+  // - La edición permite modificar cantidades / modelos según disponibilidad real o límite del aliado.
+  // - El rechazo exige motivo obligatorio.
   const handleApprove = (id: string) => {
+    if (user.role !== 'CCR') {
+      alert('Acción restringida: sólo el área de Ventas (CCR) puede aprobar solicitudes comerciales.');
+      return;
+    }
     setRequests(prev => prev.map(r => 
-        r.id === id ? { ...r, status: 'validated', history: [...r.history, { date: new Date().toLocaleString(), action: 'Aprobación Comercial', user: user.name }] } : r
+        r.id === id ? { ...r, status: 'validated', stockReserved: true, history: [...r.history, { date: new Date().toLocaleString(), action: 'Aprobación Comercial · Stock Reservado', user: user.name }] } : r
     ));
-    alert("Solicitud aprobada. Stock reservado y Operaciones Logísticas notificadas.");
+    alert("Solicitud aprobada. Stock reservado en SAP HANA / Odoo (mock) y Operaciones Logísticas notificadas.");
   };
 
   const handleEditRequest = () => {
     if (!validatingRequest) return;
+    // [CRM DEF V.5] Sólo Ventas (CCR) puede editar solicitudes comerciales.
+    if (user.role !== 'CCR') {
+      alert('Acción restringida: sólo el área de Ventas (CCR) puede editar solicitudes comerciales.');
+      return;
+    }
     setRequests(prev => prev.map(r => 
         r.id === validatingRequest.id ? { 
             ...r, 
@@ -147,7 +167,16 @@ const Warehouse: React.FC<WarehouseProps> = ({ onNavigate, user }) => {
   };
 
   const handleRejectRequest = () => {
-    if (!validatingRequest || !rejectReason) return;
+    // [CRM DEF V.5] Rechazo requiere motivo obligatorio y rol Ventas (CCR).
+    if (!validatingRequest) return;
+    if (user.role !== 'CCR') {
+      alert('Acción restringida: sólo el área de Ventas (CCR) puede rechazar solicitudes comerciales.');
+      return;
+    }
+    if (!rejectReason || rejectReason.trim().length < 5) {
+      alert('Motivo obligatorio: debe describir el motivo del rechazo (mínimo 5 caracteres).');
+      return;
+    }
     setRequests(prev => prev.map(r => 
         r.id === validatingRequest.id ? { 
             ...r, 
@@ -191,6 +220,9 @@ const Warehouse: React.FC<WarehouseProps> = ({ onNavigate, user }) => {
                     <div>
                         <h3 className="text-xl font-black">Inventario SAP</h3>
                         <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1 italic">Live Stream: SAP HANA · Odoo · AS/400 (mock)</p>
+                        {(user.role === 'CCR' || user.role === 'Inventario') && (
+                          <p className="text-[10px] text-emerald-300 font-bold mt-2">[CRM DEF V.5] Perfil habilitado para asignación directa de equipos y SIM disponibles.</p>
+                        )}
                     </div>
                     <button 
                         onClick={() => setShowThresholdSettings(true)}
@@ -813,6 +845,85 @@ const Warehouse: React.FC<WarehouseProps> = ({ onNavigate, user }) => {
     );
   };
 
+  // ====================================================================
+  // [CRM DEF V.5] Reporte Diario Consolidado en Odoo (MOCK)
+  // Periodicidad: diaria · Disponible al cierre de cada jornada.
+  // Estructura mínima: banco, terminal, afiliado, vendedor, canal, región, fecha, estado.
+  // ====================================================================
+  const renderOdooReport = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const odooReportRows = [
+      { banco: 'BNC', terminal: 'BN1452', afiliado: 'AFIL-8821 PANADERIA EL SOL', vendedor: 'Juan Poveda', canal: 'Venta Ordinaria', region: 'Metropolitana', fecha: today, estado: 'Operativo para Entrega' },
+      { banco: 'Banca Amiga', terminal: 'BA0008', afiliado: 'AFIL-9001 BODEGA CENTRAL', vendedor: 'María Pérez', canal: 'Jornada', region: 'Capital', fecha: today, estado: 'En Programación' },
+      { banco: 'Bancrecer', terminal: 'BC0021', afiliado: 'AFIL-7720 FERRETERIA LOS PINOS', vendedor: 'Carlos Lara', canal: 'Venta Ordinaria', region: 'Zulia', fecha: today, estado: 'Operativo para Entrega' },
+      { banco: 'Banplus', terminal: 'BP0034', afiliado: 'AFIL-3310 FARMACIA SAN PABLO', vendedor: 'Andrea Soto', canal: 'Venta Ordinaria', region: 'Anzoátegui', fecha: today, estado: 'Pendiente Carga AS/400' },
+      { banco: 'Banco de Venezuela', terminal: 'BV1789', afiliado: 'AFIL-1120 SUPERMERCADO CENTRAL', vendedor: 'Pedro Núñez', canal: 'Jornada', region: 'Zulia', fecha: today, estado: 'Operativo para Entrega' },
+      { banco: 'Banco Caroní', terminal: 'BC2200', afiliado: 'AFIL-5505 PASTELERIA LA ROSA', vendedor: 'Andrea Soto', canal: 'Venta Ordinaria', region: 'Bolívar', fecha: today, estado: 'Operativo para Entrega' },
+    ];
+    const exportCsv = () => {
+      const header = 'banco,terminal,afiliado,vendedor,canal,region,fecha,estado';
+      const rows = odooReportRows.map(r => [r.banco,r.terminal,r.afiliado,r.vendedor,r.canal,r.region,r.fecha,r.estado].map(x => '"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const blob = new Blob([header+'\n'+rows], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'odoo_reporte_diario_' + today + '.csv'; a.click();
+      URL.revokeObjectURL(url);
+    };
+    return (
+      <div className="space-y-4 animate-fade-in pb-20">
+        <div className="bg-slate-900 p-6 rounded-[28px] text-white shadow-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-black">Reporte Diario Consolidado · Odoo (MOCK)</h3>
+              <p className="text-[10px] text-emerald-300 font-bold uppercase tracking-widest mt-1">Generado automáticamente · Cierre de jornada {today}</p>
+              <p className="text-[10px] text-slate-300 mt-2 leading-relaxed max-w-md">
+                Reporte consolidado por banco de los terminales creados por toda la fuerza de ventas.
+                Periodicidad diaria. Disponible al cierre de cada jornada.
+              </p>
+            </div>
+            <button onClick={exportCsv} className="px-3 py-2 bg-white text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest shadow active:scale-95 transition-transform shrink-0">Exportar CSV</button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-x-auto">
+          <table className="min-w-full text-[11px]">
+            <thead className="bg-slate-50">
+              <tr className="text-[9px] text-slate-500 uppercase font-black tracking-widest">
+                <th className="px-3 py-2 text-left">Banco</th>
+                <th className="px-3 py-2 text-left">Terminal</th>
+                <th className="px-3 py-2 text-left">Afiliado</th>
+                <th className="px-3 py-2 text-left">Vendedor</th>
+                <th className="px-3 py-2 text-left">Canal</th>
+                <th className="px-3 py-2 text-left">Región</th>
+                <th className="px-3 py-2 text-left">Fecha</th>
+                <th className="px-3 py-2 text-left">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {odooReportRows.map((r, i) => (
+                <tr key={i} className="border-t border-slate-100">
+                  <td className="px-3 py-2 font-bold text-slate-800">{r.banco}</td>
+                  <td className="px-3 py-2 font-mono text-slate-700">{r.terminal}</td>
+                  <td className="px-3 py-2 text-slate-600">{r.afiliado}</td>
+                  <td className="px-3 py-2 text-slate-700">{r.vendedor}</td>
+                  <td className="px-3 py-2 text-slate-700">{r.canal}</td>
+                  <td className="px-3 py-2 text-slate-700">{r.region}</td>
+                  <td className="px-3 py-2 font-mono text-slate-500">{r.fecha}</td>
+                  <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-black text-[9px] uppercase tracking-widest">{r.estado}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 text-[10px] text-blue-800 leading-relaxed">
+          <strong>Fuente:</strong> Odoo (mock — sin integración real). Los datos se consolidan al cierre diario y se entregan en formato exportable.
+          Estructura: banco · terminal · afiliado · vendedor · canal · región · fecha · estado.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 relative min-h-[600px] pb-20">
       
@@ -835,6 +946,7 @@ const Warehouse: React.FC<WarehouseProps> = ({ onNavigate, user }) => {
         {activeTab === 'validate' && renderValidate()}
         {activeTab === 'logistics' && renderLogistics()}
         {activeTab === 'distribute' && renderDistribute()}
+        {activeTab === 'odoo_report' && renderOdooReport()}
       </div>
 
       {/* Request Modal */}

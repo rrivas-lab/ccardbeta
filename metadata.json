@@ -1,6 +1,6 @@
 {
   "name": "CredicardPOS CRM (beta modificaciones 2.0)",
-  "description": "A comprehensive Sales and CRM portal for CredicardPOS Authorized Agents, featuring sales workflows, inventory management, and AI-driven insights.",
+  "description": "A comprehensive Sales and CRM portal for CredicardPOS Authorized Agents, featuring sales workflows, inventory management, and rule-based insights (fully offline, no external AI required).",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

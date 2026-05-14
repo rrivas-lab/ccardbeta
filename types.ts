@@ -85,7 +85,10 @@ export interface Invoice {
   hasExtendedWarranty?: boolean;
 }
 
-export interface GeminiMessage {
+export interface AssistantMessage {
   role: 'user' | 'model';
   text: string;
 }
+
+// Alias mantenido para compatibilidad. El asistente ahora corre 100% local (mock).
+export type GeminiMessage = AssistantMessage;
